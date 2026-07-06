@@ -1,0 +1,119 @@
+"""Generate the bundled sample retail dataset.
+
+We ship the CSVs in the repo (so the pipeline runs with zero network),
+but this script regenerates them deterministically. The data mimics a
+tiny "Online Retail"-style open dataset: orders of products by customers
+across a handful of countries, deliberately seeded with a few dirty rows
+(nulls, a negative quantity, a duplicate) so the data-quality checks have
+something real to catch.
+
+Run:  python -m pipeforge.generate_dataset
+"""
+from __future__ import annotations
+
+import csv
+import random
+from datetime import date, timedelta
+from pathlib import Path
+
+from .config import RAW_DIR
+
+SEED = 20260707
+N_ORDERS = 600
+
+PRODUCTS = [
+    # (stock_code, description, category, unit_price)
+    ("SKU-001", "Ceramic Mug", "Kitchen", 8.50),
+    ("SKU-002", "Steel Water Bottle", "Kitchen", 15.00),
+    ("SKU-003", "Notebook A5", "Stationery", 4.25),
+    ("SKU-004", "Gel Pen Pack", "Stationery", 6.75),
+    ("SKU-005", "Desk Lamp", "Home", 29.90),
+    ("SKU-006", "Cotton Tote Bag", "Home", 12.00),
+    ("SKU-007", "Wireless Mouse", "Electronics", 19.99),
+    ("SKU-008", "USB-C Cable", "Electronics", 9.49),
+    ("SKU-009", "Bluetooth Speaker", "Electronics", 39.00),
+    ("SKU-010", "Scented Candle", "Home", 11.25),
+]
+
+CUSTOMERS = [
+    # (customer_id, country)
+    ("C-1001", "United Kingdom"),
+    ("C-1002", "United Kingdom"),
+    ("C-1003", "Germany"),
+    ("C-1004", "France"),
+    ("C-1005", "Netherlands"),
+    ("C-1006", "Germany"),
+    ("C-1007", "Spain"),
+    ("C-1008", "France"),
+    ("C-1009", "Ireland"),
+    ("C-1010", "United Kingdom"),
+]
+
+START_DATE = date(2025, 1, 1)
+DATE_SPAN_DAYS = 180
+
+
+def generate_rows(rng: random.Random) -> list[dict]:
+    rows: list[dict] = []
+    invoice_seq = 100000
+    for i in range(N_ORDERS):
+        invoice_seq += 1
+        stock_code, description, _category, unit_price = rng.choice(PRODUCTS)
+        customer_id, country = rng.choice(CUSTOMERS)
+        order_day = START_DATE + timedelta(days=rng.randint(0, DATE_SPAN_DAYS))
+        quantity = rng.randint(1, 12)
+        rows.append(
+            {
+                "invoice_no": f"INV{invoice_seq}",
+                "stock_code": stock_code,
+                "description": description,
+                "quantity": quantity,
+                "unit_price": f"{unit_price:.2f}",
+                "invoice_date": order_day.isoformat(),
+                "customer_id": customer_id,
+                "country": country,
+            }
+        )
+
+    # --- deliberately inject a few dirty rows so DQ checks have work to do ---
+    if rows:
+        # A missing customer id (null dimension key).
+        rows[5] = {**rows[5], "customer_id": ""}
+        # A negative quantity (a return miscoded as a sale).
+        rows[10] = {**rows[10], "quantity": -3}
+        # A missing unit price.
+        rows[15] = {**rows[15], "unit_price": ""}
+        # An exact duplicate invoice line.
+        rows.append(dict(rows[20]))
+    return rows
+
+
+def write_csv(rows: list[dict], target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "invoice_no",
+        "stock_code",
+        "description",
+        "quantity",
+        "unit_price",
+        "invoice_date",
+        "customer_id",
+        "country",
+    ]
+    with target.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def main() -> Path:
+    rng = random.Random(SEED)
+    rows = generate_rows(rng)
+    target = RAW_DIR / "online_retail.csv"
+    write_csv(rows, target)
+    print(f"Wrote {len(rows)} rows to {target}")
+    return target
+
+
+if __name__ == "__main__":
+    main()

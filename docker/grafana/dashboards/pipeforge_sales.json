@@ -1,0 +1,107 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total revenue",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD", "decimals": 2 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COALESCE(SUM(revenue),0) AS revenue FROM fact_sales;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Orders (fact rows)",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS orders FROM fact_sales;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Quarantined rows",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS quarantined FROM quarantine;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "piechart",
+      "title": "Revenue by category",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT p.category, SUM(f.revenue) AS revenue FROM fact_sales f JOIN dim_product p ON f.product_key = p.product_key GROUP BY p.category ORDER BY revenue DESC;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Daily revenue",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT d.date AS time, SUM(f.revenue) AS revenue FROM fact_sales f JOIN dim_date d ON f.date_key = d.date_key GROUP BY d.date ORDER BY d.date;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Revenue by country",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT c.country, SUM(f.revenue) AS revenue FROM fact_sales f JOIN dim_customer c ON f.customer_key = c.customer_key GROUP BY c.country ORDER BY revenue DESC;",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 39,
+  "tags": ["pipeforge"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6M", "to": "now" },
+  "timezone": "",
+  "title": "pipeforge - Retail Sales Star Schema",
+  "uid": "pipeforge-sales",
+  "version": 1,
+  "weekStart": ""
+}

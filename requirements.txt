@@ -1,0 +1,4 @@
+# Core runtime deps for the pandas ELT pipeline. These are all free and
+# pure-Python-friendly; no paid service is ever required.
+pandas>=2.0
+SQLAlchemy>=2.0

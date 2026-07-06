@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipeforge"
+version = "0.1.0"
+description = "One-command local data-engineering playground: a batch ELT pipeline over a bundled dataset producing a star schema."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "xj16" }]
+keywords = ["data-engineering", "elt", "etl", "pandas", "airflow", "star-schema", "data-quality"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "pandas>=2.0",
+    "SQLAlchemy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "psycopg2-binary>=2.9", "pyarrow>=14.0"]
+postgres = ["psycopg2-binary>=2.9"]
+export = ["pyarrow>=14.0"]
+
+[project.scripts]
+pipeforge = "pipeforge.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/xj16/pipeforge"
+Repository = "https://github.com/xj16/pipeforge"
+
+[tool.setuptools]
+packages = [
+    "pipeforge",
+    "pipeforge.pipeline",
+    "pipeforge.checks",
+    "pipeforge.schema",
+    "pipeforge.export",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

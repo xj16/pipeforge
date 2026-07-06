@@ -1,0 +1,19 @@
+apiVersion: 1
+
+# Wire Grafana straight to the pipeforge Postgres warehouse so dashboards
+# query the star schema the Airflow DAG populates.
+datasources:
+  - name: pipeforge-warehouse
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: pipeforge
+    user: pipeforge
+    secureJsonData:
+      password: pipeforge
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+    isDefault: true
+    editable: true

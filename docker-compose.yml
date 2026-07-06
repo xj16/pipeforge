@@ -1,0 +1,106 @@
+# pipeforge full-experience stack: Postgres + Airflow + Grafana.
+#
+# The CORE pandas pipeline runs WITHOUT any of this (see the README quick
+# start). Use this stack only when you want the orchestrated experience:
+#
+#   docker compose up -d
+#   # Airflow UI  -> http://localhost:8080  (user: airflow / pass: airflow)
+#   # Grafana UI  -> http://localhost:3000  (user: admin   / pass: admin)
+#
+# Grafana reads directly from the Postgres warehouse that the Airflow DAG
+# populates, so once the DAG runs you get live charts of the star schema.
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow.Dockerfile
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    # Point pipeforge at the Postgres warehouse (separate DB "pipeforge").
+    PIPEFORGE_WAREHOUSE: postgres
+    PIPEFORGE_POSTGRES_URL: postgresql+psycopg2://pipeforge:pipeforge@postgres:5432/pipeforge
+    PIPEFORGE_FAIL_ON_CHECK: "0"
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./pipeforge:/opt/airflow/pipeforge
+    - ./data:/opt/airflow/data
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Creates the separate "pipeforge" database + user on first boot.
+      - ./docker/postgres/init-pipeforge.sql:/docker-entrypoint-initdb.d/init-pipeforge.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username airflow --password airflow \
+          --firstname pipe --lastname forge \
+          --role Admin --email admin@example.com || true
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Builds / dist
+dist/
+build/
+bin/
+obj/
+target/
+
+# Node (not used, but excluded per project policy)
+node_modules/
+
+# Vagrant
+.vagrant/
+
+# Logs
+*.log
+
+# pipeforge generated artefacts -- warehouse DB & exports are reproducible.
+# (Ignore the contents of data/warehouse/ but keep the directory via .gitkeep.)
+data/warehouse/*
+!data/warehouse/.gitkeep
+data/raw/*.tmp
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

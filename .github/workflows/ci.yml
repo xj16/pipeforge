@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test pipeline (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the primary target (matches the Airflow image); 3.12 proves
+        # forward-compat. Heavy/optional deps have wheels for both.
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Regenerate bundled dataset (determinism check)
+        run: python -m pipeforge.generate_dataset
+
+      - name: Run data-quality checks
+        run: python -m pipeforge check
+
+      - name: Run test suite
+        run: pytest -q
+
+      - name: Smoke-run the full ELT pipeline (SQLite)
+        run: |
+          python -m pipeforge run
+          python -m pipeforge report
+          python -m pipeforge export
+
+  elt-on-postgres:
+    name: ELT against Postgres
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pipeforge
+          POSTGRES_PASSWORD: pipeforge
+          POSTGRES_DB: pipeforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pipeforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Run ELT into Postgres warehouse
+        env:
+          PIPEFORGE_WAREHOUSE: postgres
+          PIPEFORGE_POSTGRES_URL: postgresql+psycopg2://pipeforge:pipeforge@localhost:5432/pipeforge
+        run: |
+          python -m pipeforge run
+          python -m pipeforge report
