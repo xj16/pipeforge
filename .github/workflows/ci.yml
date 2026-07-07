@@ -126,6 +126,9 @@ jobs:
           python -m pip install --upgrade pip
           CONSTRAINTS="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-3.11.txt"
           pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINTS}"
+          # pandas is not a core Airflow dep; install it under the SAME
+          # constraints so SQLAlchemy stays pinned < 2.0 (pipeforge imports pandas).
+          pip install pandas --constraint "${CONSTRAINTS}"
 
       - name: Initialise Airflow metadata DB
         env:
