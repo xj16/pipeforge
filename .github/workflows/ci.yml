@@ -165,4 +165,3 @@ jobs:
         with:
           name: pipeforge-static-demo
           path: docs/index.html
-          python -m pipeforge report
