@@ -18,10 +18,12 @@ GROUP BY p.stock_code, p.description
 ORDER BY units DESC
 LIMIT 5;
 
--- 3. Revenue by country.
+-- 3. Revenue by country (current customer version only -- dim_customer is
+--    a Type-2 SCD, so filter is_current to avoid counting closed versions).
 SELECT c.country, ROUND(SUM(f.revenue), 2) AS revenue
 FROM fact_sales f
 JOIN dim_customer c ON f.customer_key = c.customer_key
+WHERE c.is_current
 GROUP BY c.country
 ORDER BY revenue DESC;
 
@@ -43,3 +45,16 @@ SELECT quarantine_reason, COUNT(*) AS rows
 FROM quarantine
 GROUP BY quarantine_reason
 ORDER BY rows DESC;
+
+-- 7. SCD-2 history: every version of every customer (open + closed).
+--    A closed version has effective_to set and is_current = false.
+SELECT customer_id, country, effective_from, effective_to, is_current
+FROM dim_customer
+ORDER BY customer_id, effective_from;
+
+-- 8. Pipeline lineage: recent runs, freshest first.
+SELECT started_at, load_mode, rows_extracted, rows_loaded,
+       rows_quarantined, total_revenue, git_sha
+FROM pipeline_runs
+ORDER BY started_at DESC
+LIMIT 10;

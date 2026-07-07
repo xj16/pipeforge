@@ -13,7 +13,7 @@ from pipeforge.pipeline.extract import extract_orders
 @pytest.fixture(scope="session")
 def dataset_dir() -> Path:
     """Ensure the bundled dataset exists; return its raw dir."""
-    path = generate_dataset()
+    path = generate_dataset([])  # explicit argv -> deterministic default dataset
     return path.parent
 
 

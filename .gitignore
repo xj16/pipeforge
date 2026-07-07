@@ -33,6 +33,14 @@ node_modules/
 data/warehouse/*
 !data/warehouse/.gitkeep
 data/raw/*.tmp
+# Airflow bronze staging hand-off (regenerated per run).
+data/staging/
+
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
 # OS / editor cruft
 .DS_Store

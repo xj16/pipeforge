@@ -7,10 +7,20 @@ across a handful of countries, deliberately seeded with a few dirty rows
 (nulls, a negative quantity, a duplicate) so the data-quality checks have
 something real to catch.
 
-Run:  python -m pipeforge.generate_dataset
+Usage::
+
+    python -m pipeforge.generate_dataset                # default 600-row dataset
+    python -m pipeforge.generate_dataset --rows 10000   # scale up
+    python -m pipeforge.generate_dataset --revision 1   # move one customer's country
+    python -m pipeforge.generate_dataset --profile      # print per-column stats
+
+``--revision N`` changes customer ``C-1003``'s country (Germany -> a rotating
+alternative) so a second run exercises the Type-2 slowly-changing dimension
+and the ``merge`` load mode.
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import random
 from datetime import date, timedelta
@@ -49,17 +59,34 @@ CUSTOMERS = [
     ("C-1010", "United Kingdom"),
 ]
 
+# Countries C-1003 rotates through on successive --revision values, so the
+# SCD-2 logic has a real, deterministic change to detect between runs.
+REVISION_COUNTRIES = ["Germany", "Austria", "Switzerland", "Belgium"]
+
 START_DATE = date(2025, 1, 1)
 DATE_SPAN_DAYS = 180
 
 
-def generate_rows(rng: random.Random) -> list[dict]:
+def _customers(revision: int) -> list[tuple[str, str]]:
+    """Return the customer list, applying a --revision country change."""
+    if revision <= 0:
+        return list(CUSTOMERS)
+    country = REVISION_COUNTRIES[revision % len(REVISION_COUNTRIES)]
+    return [
+        (cid, country if cid == "C-1003" else c) for cid, c in CUSTOMERS
+    ]
+
+
+def generate_rows(
+    rng: random.Random, *, n_orders: int = N_ORDERS, revision: int = 0
+) -> list[dict]:
+    customers = _customers(revision)
     rows: list[dict] = []
     invoice_seq = 100000
-    for i in range(N_ORDERS):
+    for _ in range(n_orders):
         invoice_seq += 1
         stock_code, description, _category, unit_price = rng.choice(PRODUCTS)
-        customer_id, country = rng.choice(CUSTOMERS)
+        customer_id, country = rng.choice(customers)
         order_day = START_DATE + timedelta(days=rng.randint(0, DATE_SPAN_DAYS))
         quantity = rng.randint(1, 12)
         rows.append(
@@ -106,9 +133,65 @@ def write_csv(rows: list[dict], target: Path) -> None:
         writer.writerows(rows)
 
 
-def main() -> Path:
-    rng = random.Random(SEED)
-    rows = generate_rows(rng)
+def profile(rows: list[dict]) -> str:
+    """Return a per-column null/min/max/distinct summary of the rows."""
+    if not rows:
+        return "(no rows)"
+    cols = list(rows[0].keys())
+    lines = [f"Profiled {len(rows)} rows across {len(cols)} columns:"]
+    for col in cols:
+        values = [r.get(col) for r in rows]
+        non_null = [v for v in values if v not in (None, "")]
+        nulls = len(values) - len(non_null)
+        distinct = len(set(non_null))
+        numeric = []
+        for v in non_null:
+            try:
+                numeric.append(float(v))
+            except (TypeError, ValueError):
+                numeric = []
+                break
+        rng = (
+            f" min={min(numeric):g} max={max(numeric):g}" if numeric else ""
+        )
+        lines.append(
+            f"  {col:<14} nulls={nulls:<4} distinct={distinct:<5}{rng}"
+        )
+    return "\n".join(lines)
+
+
+def build(
+    *, rows: int = N_ORDERS, revision: int = 0, seed: int = SEED
+) -> list[dict]:
+    """Deterministically build the row list for the given parameters."""
+    return generate_rows(random.Random(seed), n_orders=rows, revision=revision)
+
+
+def main(argv: list[str] | None = None) -> Path:
+    parser = argparse.ArgumentParser(
+        prog="pipeforge.generate_dataset",
+        description="(Re)generate the bundled retail dataset.",
+    )
+    parser.add_argument("--rows", type=int, default=N_ORDERS, help="number of orders")
+    parser.add_argument(
+        "--revision",
+        type=int,
+        default=0,
+        help="apply a customer country change (exercises SCD-2 / merge)",
+    )
+    parser.add_argument("--seed", type=int, default=SEED, help="RNG seed")
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="print per-column stats instead of (only) writing the CSV",
+    )
+    args = parser.parse_args(argv)
+
+    rows = build(rows=args.rows, revision=args.revision, seed=args.seed)
+
+    if args.profile:
+        print(profile(rows))
+
     target = RAW_DIR / "online_retail.csv"
     write_csv(rows, target)
     print(f"Wrote {len(rows)} rows to {target}")

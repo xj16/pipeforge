@@ -76,6 +76,13 @@ def _split_valid(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     flag(df["quantity"].isna(), "missing_quantity")
     flag(df["quantity"].fillna(0) <= 0, "non_positive_quantity")
 
+    # Duplicate invoice lines violate the declared fact grain
+    # (invoice_no, stock_code, invoice_date). Keep the first, quarantine the
+    # rest, so the fact's natural key is genuinely unique at the storage layer.
+    grain = ["invoice_no", "stock_code", "invoice_date"]
+    dup_mask = df.duplicated(subset=grain, keep="first")
+    flag(dup_mask, "duplicate_invoice_line")
+
     bad_mask = reasons != ""
     valid = df.loc[~bad_mask].copy()
     quarantine = df.loc[bad_mask].copy()
@@ -96,6 +103,11 @@ def _build_dim_product(valid: pd.DataFrame) -> pd.DataFrame:
     return dim[["product_key", "stock_code", "description", "category", "unit_price"]]
 
 
+# The "beginning of time" watermark used to open the first version of every
+# SCD-2 dimension row. Kept as a module constant so tests can reference it.
+SCD_EPOCH = pd.Timestamp("1900-01-01")
+
+
 def _build_dim_customer(valid: pd.DataFrame) -> pd.DataFrame:
     dim = (
         valid[["customer_id", "country"]]
@@ -105,7 +117,22 @@ def _build_dim_customer(valid: pd.DataFrame) -> pd.DataFrame:
         .reset_index(drop=True)
     )
     dim.insert(0, "customer_key", range(1, len(dim) + 1))
-    return dim[["customer_key", "customer_id", "country"]]
+    # SCD-2 versioning columns. On a first (type-1) build every customer is a
+    # single open version: effective from the epoch, no end, current=True.
+    # The SCD-2 loader (load.py, merge mode) later closes/opens these on change.
+    dim["effective_from"] = SCD_EPOCH.date()
+    dim["effective_to"] = pd.NaT
+    dim["is_current"] = True
+    return dim[
+        [
+            "customer_key",
+            "customer_id",
+            "country",
+            "effective_from",
+            "effective_to",
+            "is_current",
+        ]
+    ]
 
 
 def _build_dim_date(valid: pd.DataFrame) -> pd.DataFrame:
@@ -135,9 +162,12 @@ def _build_fact_sales(
     fact = fact.merge(
         dim_product[["product_key", "stock_code"]], on="stock_code", how="left"
     )
-    fact = fact.merge(
-        dim_customer[["customer_key", "customer_id"]], on="customer_id", how="left"
-    )
+    # Join to the *current* customer version so the surrogate key points at the
+    # live row (matters once dim_customer carries SCD-2 history).
+    current_customer = dim_customer.loc[
+        dim_customer["is_current"], ["customer_key", "customer_id"]
+    ]
+    fact = fact.merge(current_customer, on="customer_id", how="left")
     fact["quantity"] = fact["quantity"].astype("int64")
     fact["revenue"] = (fact["quantity"] * fact["unit_price"]).round(2)
     fact = fact.reset_index(drop=True)

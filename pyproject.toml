@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pipeforge"
-version = "0.1.0"
+version = "0.2.0"
 description = "One-command local data-engineering playground: a batch ELT pipeline over a bundled dataset producing a star schema."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4", "psycopg2-binary>=2.9", "pyarrow>=14.0"]
+dev = ["pytest>=7.4", "pytest-cov>=4.1", "psycopg2-binary>=2.9", "pyarrow>=14.0"]
 postgres = ["psycopg2-binary>=2.9"]
 export = ["pyarrow>=14.0"]
 
@@ -46,3 +46,20 @@ packages = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.coverage.run]
+branch = true
+source = ["pipeforge"]
+omit = [
+    # Offline export stubs and the dataset generator are exercised via their
+    # own tests but excluded from the core-logic coverage floor.
+    "pipeforge/__main__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

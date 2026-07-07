@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>pipeforge — Retail Sales Star Schema</title>
+<style>
+:root {
+  /* Warm-biased slate ground with an ember accent (the "forge"). */
+  --bg:#12100e; --card:#1c1a17; --card2:#242019; --ink:#efe9df; --muted:#a39a8c;
+  --line:#332e26; --accent:#f0883e;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:
+    radial-gradient(1100px 480px at 78% -8%, rgba(240,136,62,.10), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; }
+.mono, .val, .axis, .kpi-v, td.mono, th { font-variant-numeric:tabular-nums; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+.wrap { max-width:1100px; margin:0 auto; padding:32px 20px 64px; }
+header h1 { margin:0; font-size:28px; letter-spacing:-.5px; }
+header p { margin:6px 0 0; color:var(--muted); }
+header h1 { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.pill { display:inline-block; font-size:11px; letter-spacing:.8px;
+  text-transform:uppercase; padding:4px 11px; border-radius:999px;
+  background:rgba(240,136,62,.12); border:1px solid rgba(240,136,62,.35);
+  color:var(--accent); font-weight:600; }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px; margin:26px 0; }
+.kpi { background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:16px 18px; }
+.kpi.primary { border-color:rgba(240,136,62,.45);
+  background:linear-gradient(160deg, rgba(240,136,62,.10), var(--card) 70%); }
+.kpi.primary .kpi-v { color:var(--accent); }
+.kpi-v { font-size:26px; font-weight:700; letter-spacing:-.5px; }
+.kpi-l { font-size:13px; margin-top:2px; }
+.kpi-s { font-size:12px; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+@media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+.card { background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:18px 20px; overflow-x:auto; }
+.card h2 { margin:0 0 14px; font-size:15px; font-weight:600; color:#cdd4ea;
+  text-transform:uppercase; letter-spacing:.6px; }
+.full { grid-column:1 / -1; }
+.muted { color:var(--muted); }
+.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
+svg.chart line.grid { stroke:var(--line); stroke-width:1; }
+svg.chart text.lbl { fill:var(--ink); font-size:13px; }
+svg.chart text.val { fill:var(--muted); font-size:12px; }
+svg.chart text.axis { fill:var(--muted); font-size:11px; }
+.donut-wrap { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+.legend { display:flex; flex-direction:column; gap:6px; }
+.leg { font-size:13px; }
+.sw { display:inline-block; width:11px; height:11px; border-radius:3px;
+  margin-right:7px; vertical-align:middle; }
+table.dq { width:100%; border-collapse:collapse; font-size:13px; }
+table.dq th, table.dq td { text-align:left; padding:8px 10px;
+  border-bottom:1px solid var(--line); }
+table.dq th { color:var(--muted); font-weight:600; }
+.badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
+.badge.pass { background:#0f2f22; color:#4ade80; }
+.badge.warn { background:#33270a; color:#fbbf24; }
+.badge.fail { background:#3a1418; color:#f87171; }
+.empty { color:var(--muted); }
+details { margin-top:26px; }
+summary { cursor:pointer; color:var(--muted); }
+pre { background:var(--card2); border:1px solid var(--line); border-radius:12px;
+  padding:14px; overflow-x:auto; font-size:12px; }
+footer { margin-top:36px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>pipeforge <span class="pill">retail sales · star schema</span></h1>
+    <p>Static warehouse explorer — the six Grafana panels, generated straight
+       from the ELT output. No Docker, no Postgres, no JavaScript libraries.</p>
+    <p class="muted">Generated 2026-07-07 10:23 UTC</p>
+  </header>
+
+  <section class="kpis"><div class="kpi primary"><div class="kpi-v">59,289.12</div><div class="kpi-l">Total revenue</div><div class="kpi-s muted">fact_sales</div></div><div class="kpi"><div class="kpi-v">597</div><div class="kpi-l">Orders (fact rows)</div><div class="kpi-s muted">invoice lines</div></div><div class="kpi"><div class="kpi-v">10</div><div class="kpi-l">Products</div><div class="kpi-s muted">dim_product</div></div><div class="kpi"><div class="kpi-v">10</div><div class="kpi-l">Customers</div><div class="kpi-s muted">dim_customer</div></div><div class="kpi"><div class="kpi-v">4</div><div class="kpi-l">Quarantined</div><div class="kpi-s muted">rejected rows</div></div></section>
+
+  <section class="grid">
+    <div class="card"><h2>Revenue by category</h2><div class="donut-wrap"><svg viewBox="0 0 200 200" width="200" height="200" role="img" class="chart"><path d="M 100.0 100.0 L 100.00 8.00 A 92.0 92.0 0 0 1 122.60 189.18 Z" fill="#f0883e"><title>Electronics: 27,302.37 (46%)</title></path><path d="M 100.0 100.0 L 122.60 189.18 A 92.0 92.0 0 0 1 12.61 71.26 Z" fill="#38bdf8"><title>Home: 20,162.75 (34%)</title></path><path d="M 100.0 100.0 L 12.61 71.26 A 92.0 92.0 0 0 1 54.10 20.27 Z" fill="#34d399"><title>Kitchen: 6,895.50 (12%)</title></path><path d="M 100.0 100.0 L 54.10 20.27 A 92.0 92.0 0 0 1 100.00 8.00 Z" fill="#fbbf24"><title>Stationery: 4,928.50 (8%)</title></path><circle cx="100.0" cy="100.0" r="53.36" fill="var(--card)"/></svg><div class="legend"><div class="leg"><span class="sw" style="background:#f0883e"></span>Electronics <span class="muted">46%</span></div><div class="leg"><span class="sw" style="background:#38bdf8"></span>Home <span class="muted">34%</span></div><div class="leg"><span class="sw" style="background:#34d399"></span>Kitchen <span class="muted">12%</span></div><div class="leg"><span class="sw" style="background:#fbbf24"></span>Stationery <span class="muted">8%</span></div></div></div></div>
+    <div class="card"><h2>Revenue by country</h2><svg viewBox="0 0 460 226" width="100%" role="img" class="chart"><text x="112" y="28" text-anchor="end" class="lbl">United Kingdom</text><rect x="120" y="10" width="250" height="26" rx="4" fill="#f0883e"><title>United Kingdom: 19,145.95</title></rect><text x="376" y="28" class="val">19,145.95</text><text x="112" y="64" text-anchor="end" class="lbl">France</text><rect x="120" y="46" width="141" height="26" rx="4" fill="#38bdf8"><title>France: 10,835.38</title></rect><text x="267" y="64" class="val">10,835.38</text><text x="112" y="100" text-anchor="end" class="lbl">Germany</text><rect x="120" y="82" width="132" height="26" rx="4" fill="#34d399"><title>Germany: 10,127.93</title></rect><text x="258" y="100" class="val">10,127.93</text><text x="112" y="136" text-anchor="end" class="lbl">Netherlands</text><rect x="120" y="118" width="102" height="26" rx="4" fill="#fbbf24"><title>Netherlands: 7,847.84</title></rect><text x="228" y="136" class="val">7,847.84</text><text x="112" y="172" text-anchor="end" class="lbl">Ireland</text><rect x="120" y="154" width="78" height="26" rx="4" fill="#fb7185"><title>Ireland: 5,982.82</title></rect><text x="204" y="172" class="val">5,982.82</text><text x="112" y="208" text-anchor="end" class="lbl">Spain</text><rect x="120" y="190" width="69" height="26" rx="4" fill="#a78bfa"><title>Spain: 5,349.20</title></rect><text x="195" y="208" class="val">5,349.20</text></svg></div>
+    <div class="card full"><h2>Daily revenue</h2><svg viewBox="0 0 720 240" width="100%" role="img" class="chart"><line x1="56" y1="212.0" x2="704" y2="212.0" class="grid"/><text x="48" y="216.0" text-anchor="end" class="axis">4</text><line x1="56" y1="114.0" x2="704" y2="114.0" class="grid"/><text x="48" y="118.0" text-anchor="end" class="axis">846</text><line x1="56" y1="16.0" x2="704" y2="16.0" class="grid"/><text x="48" y="20.0" text-anchor="end" class="axis">1,687</text><polygon points="56,212 56.0,176.0 59.7,204.8 63.4,180.5 67.2,182.8 70.9,197.5 74.6,192.3 78.3,166.7 82.1,209.9 85.8,177.6 89.5,186.3 93.2,184.1 97.0,142.4 100.7,143.0 104.4,182.2 108.1,186.0 111.9,178.3 115.6,168.9 119.3,205.3 123.0,137.9 126.8,198.5 130.5,200.2 134.2,181.0 137.9,201.8 141.7,96.8 145.4,187.7 149.1,208.6 152.8,210.7 156.6,192.9 160.3,170.2 164.0,212.0 167.7,158.4 171.4,194.3 175.2,146.6 178.9,72.4 182.6,198.5 186.3,156.3 190.1,124.4 193.8,208.6 197.5,144.3 201.2,142.8 205.0,137.9 208.7,188.8 212.4,194.7 216.1,173.5 219.9,157.9 223.6,153.0 227.3,177.3 231.0,159.9 234.8,143.2 238.5,186.9 242.2,125.2 245.9,186.8 249.7,157.7 253.4,207.8 257.1,204.9 260.8,182.7 264.6,152.5 268.3,205.9 272.0,190.7 275.7,197.6 279.4,176.5 283.2,181.2 286.9,140.7 290.6,147.6 294.3,191.4 298.1,126.0 301.8,129.2 305.5,191.5 309.2,210.3 313.0,188.2 316.7,93.0 320.4,173.2 324.1,193.0 327.9,120.6 331.6,193.5 335.3,142.2 339.0,174.3 342.8,208.1 346.5,198.7 350.2,194.1 353.9,208.3 357.7,145.9 361.4,126.9 365.1,186.0 368.8,197.6 372.6,144.8 376.3,154.9 380.0,167.8 383.7,180.1 387.4,191.9 391.2,148.8 394.9,156.5 398.6,201.6 402.3,152.8 406.1,183.0 409.8,141.2 413.5,205.9 417.2,195.7 421.0,150.6 424.7,90.1 428.4,140.3 432.1,179.2 435.9,186.9 439.6,181.7 443.3,208.3 447.0,211.2 450.8,146.7 454.5,126.6 458.2,209.0 461.9,206.6 465.7,202.9 469.4,208.0 473.1,180.7 476.8,182.2 480.6,212.0 484.3,184.2 488.0,189.2 491.7,188.7 495.4,140.0 499.2,154.2 502.9,194.6 506.6,205.4 510.3,209.4 514.1,168.9 517.8,186.0 521.5,149.1 525.2,143.1 529.0,198.6 532.7,136.9 536.4,166.3 540.1,207.3 543.9,210.0 547.6,184.8 551.3,190.3 555.0,167.6 558.8,186.2 562.5,198.9 566.2,178.2 569.9,188.3 573.7,127.9 577.4,187.9 581.1,173.8 584.8,201.6 588.6,209.7 592.3,182.5 596.0,21.6 599.7,191.3 603.4,206.6 607.2,193.6 610.9,194.6 614.6,167.3 618.3,175.4 622.1,161.4 625.8,148.3 629.5,197.6 633.2,182.3 637.0,209.4 640.7,202.3 644.4,195.3 648.1,172.2 651.9,113.2 655.6,111.6 659.3,207.1 663.0,160.3 666.8,200.6 670.5,16.0 674.2,157.1 677.9,135.7 681.7,189.4 685.4,194.3 689.1,138.2 692.8,173.5 696.6,112.8 700.3,169.6 704.0,193.6 704,212" fill="url(#areaGrad)" opacity="0.18"/><polyline points="56.0,176.0 59.7,204.8 63.4,180.5 67.2,182.8 70.9,197.5 74.6,192.3 78.3,166.7 82.1,209.9 85.8,177.6 89.5,186.3 93.2,184.1 97.0,142.4 100.7,143.0 104.4,182.2 108.1,186.0 111.9,178.3 115.6,168.9 119.3,205.3 123.0,137.9 126.8,198.5 130.5,200.2 134.2,181.0 137.9,201.8 141.7,96.8 145.4,187.7 149.1,208.6 152.8,210.7 156.6,192.9 160.3,170.2 164.0,212.0 167.7,158.4 171.4,194.3 175.2,146.6 178.9,72.4 182.6,198.5 186.3,156.3 190.1,124.4 193.8,208.6 197.5,144.3 201.2,142.8 205.0,137.9 208.7,188.8 212.4,194.7 216.1,173.5 219.9,157.9 223.6,153.0 227.3,177.3 231.0,159.9 234.8,143.2 238.5,186.9 242.2,125.2 245.9,186.8 249.7,157.7 253.4,207.8 257.1,204.9 260.8,182.7 264.6,152.5 268.3,205.9 272.0,190.7 275.7,197.6 279.4,176.5 283.2,181.2 286.9,140.7 290.6,147.6 294.3,191.4 298.1,126.0 301.8,129.2 305.5,191.5 309.2,210.3 313.0,188.2 316.7,93.0 320.4,173.2 324.1,193.0 327.9,120.6 331.6,193.5 335.3,142.2 339.0,174.3 342.8,208.1 346.5,198.7 350.2,194.1 353.9,208.3 357.7,145.9 361.4,126.9 365.1,186.0 368.8,197.6 372.6,144.8 376.3,154.9 380.0,167.8 383.7,180.1 387.4,191.9 391.2,148.8 394.9,156.5 398.6,201.6 402.3,152.8 406.1,183.0 409.8,141.2 413.5,205.9 417.2,195.7 421.0,150.6 424.7,90.1 428.4,140.3 432.1,179.2 435.9,186.9 439.6,181.7 443.3,208.3 447.0,211.2 450.8,146.7 454.5,126.6 458.2,209.0 461.9,206.6 465.7,202.9 469.4,208.0 473.1,180.7 476.8,182.2 480.6,212.0 484.3,184.2 488.0,189.2 491.7,188.7 495.4,140.0 499.2,154.2 502.9,194.6 506.6,205.4 510.3,209.4 514.1,168.9 517.8,186.0 521.5,149.1 525.2,143.1 529.0,198.6 532.7,136.9 536.4,166.3 540.1,207.3 543.9,210.0 547.6,184.8 551.3,190.3 555.0,167.6 558.8,186.2 562.5,198.9 566.2,178.2 569.9,188.3 573.7,127.9 577.4,187.9 581.1,173.8 584.8,201.6 588.6,209.7 592.3,182.5 596.0,21.6 599.7,191.3 603.4,206.6 607.2,193.6 610.9,194.6 614.6,167.3 618.3,175.4 622.1,161.4 625.8,148.3 629.5,197.6 633.2,182.3 637.0,209.4 640.7,202.3 644.4,195.3 648.1,172.2 651.9,113.2 655.6,111.6 659.3,207.1 663.0,160.3 666.8,200.6 670.5,16.0 674.2,157.1 677.9,135.7 681.7,189.4 685.4,194.3 689.1,138.2 692.8,173.5 696.6,112.8 700.3,169.6 704.0,193.6" fill="none" stroke="#f0883e" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="704.0" cy="193.6" r="4.5" fill="#f0883e"/><circle cx="704.0" cy="193.6" r="8" fill="#f0883e" opacity="0.25"/><text x="56.0" y="232" text-anchor="middle" class="axis">2025-01-01</text><text x="380.0" y="232" text-anchor="middle" class="axis">2025-04-01</text><text x="704.0" y="232" text-anchor="middle" class="axis">2025-06-30</text><defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f0883e"/><stop offset="100%" stop-color="#f0883e" stop-opacity="0"/></linearGradient></defs></svg></div>
+    <div class="card"><h2>Quarantine reasons</h2><svg viewBox="0 0 460 154" width="100%" role="img" class="chart"><text x="112" y="28" text-anchor="end" class="lbl">missing_customer_id</text><rect x="120" y="10" width="250" height="26" rx="4" fill="#f0883e"><title>missing_customer_id: 1.00</title></rect><text x="376" y="28" class="val">1.00</text><text x="112" y="64" text-anchor="end" class="lbl">non_positive_quantity</text><rect x="120" y="46" width="250" height="26" rx="4" fill="#38bdf8"><title>non_positive_quantity: 1.00</title></rect><text x="376" y="64" class="val">1.00</text><text x="112" y="100" text-anchor="end" class="lbl">missing_unit_price</text><rect x="120" y="82" width="250" height="26" rx="4" fill="#34d399"><title>missing_unit_price: 1.00</title></rect><text x="376" y="100" class="val">1.00</text><text x="112" y="136" text-anchor="end" class="lbl">duplicate_invoice_line</text><rect x="120" y="118" width="250" height="26" rx="4" fill="#fbbf24"><title>duplicate_invoice_line: 1.00</title></rect><text x="376" y="136" class="val">1.00</text></svg></div>
+    <div class="card"><h2>Data-quality &amp; reconciliation</h2><table class='dq'><thead><tr><th>Status</th><th>Check</th><th>Severity</th><th>Observed</th><th>Detail</th></tr></thead><tbody><tr><td><span class='badge pass'>PASS</span></td><td class='mono'>row_count_at_least</td><td>error</td><td class='mono'>601</td><td class='muted'></td></tr><tr><td><span class='badge pass'>PASS</span></td><td class='mono'>not_null[invoice_no]</td><td>error</td><td class='mono'>0.0</td><td class='muted'></td></tr><tr><td><span class='badge pass'>PASS</span></td><td class='mono'>not_null[stock_code]</td><td>error</td><td class='mono'>0.0</td><td class='muted'></td></tr><tr><td><span class='badge pass'>PASS</span></td><td class='mono'>not_null[customer_id]</td><td>warning</td><td class='mono'>0.0017</td><td class='muted'></td></tr><tr><td><span class='badge pass'>PASS</span></td><td class='mono'>not_null[unit_price]</td><td>warning</td><td class='mono'>0.0017</td><td class='muted'></td></tr><tr><td><span class='badge warn'>WARN</span></td><td class='mono'>non_negative[quantity]</td><td>warning</td><td class='mono'>1</td><td class='muted'>1 negative value(s) in &#x27;quantity&#x27;</td></tr><tr><td><span class='badge warn'>WARN</span></td><td class='mono'>unique[invoice_no+stock_code+invoice_date]</td><td>warning</td><td class='mono'>1</td><td class='muted'>1 duplicate row(s) on (invoice_no+stock_code+invoice_date)</td></tr></tbody></table></div>
+  </section>
+
+  <details>
+    <summary>Embedded aggregates (JSON)</summary>
+    <pre>{
+  &quot;total_revenue&quot;: 59289.12,
+  &quot;orders&quot;: 597,
+  &quot;unique_products&quot;: 10,
+  &quot;unique_customers&quot;: 10,
+  &quot;quarantined&quot;: 4,
+  &quot;by_category&quot;: [
+    {
+      &quot;label&quot;: &quot;Electronics&quot;,
+      &quot;value&quot;: 27302.37
+    },
+    {
+      &quot;label&quot;: &quot;Home&quot;,
+      &quot;value&quot;: 20162.75
+    },
+    {
+      &quot;label&quot;: &quot;Kitchen&quot;,
+      &quot;value&quot;: 6895.5
+    },
+    {
+      &quot;label&quot;: &quot;Stationery&quot;,
+      &quot;value&quot;: 4928.5
+    }
+  ],
+  &quot;by_country&quot;: [
+    {
+      &quot;label&quot;: &quot;United Kingdom&quot;,
+      &quot;value&quot;: 19145.95
+    },
+    {
+      &quot;label&quot;: &quot;France&quot;,
+      &quot;value&quot;: 10835.38
+    },
+    {
+      &quot;label&quot;: &quot;Germany&quot;,
+      &quot;value&quot;: 10127.93
+    },
+    {
+      &quot;label&quot;: &quot;Netherlands&quot;,
+      &quot;value&quot;: 7847.84
+    },
+    {
+      &quot;label&quot;: &quot;Ireland&quot;,
+      &quot;value&quot;: 5982.82
+    },
+    {
+      &quot;label&quot;: &quot;Spain&quot;,
+      &quot;value&quot;: 5349.2
+    }
+  ],
+  &quot;daily_revenue&quot;: [
+    {
+      &quot;date&quot;: &quot;2025-01-01&quot;,
+      &quot;value&quot;: 313.18
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-02&quot;,
+      &quot;value&quot;: 66.43
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-03&quot;,
+      &quot;value&quot;: 274.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-04&quot;,
+      &quot;value&quot;: 254.9
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-05&quot;,
+      &quot;value&quot;: 129.09
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-06&quot;,
+      &quot;value&quot;: 173.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-07&quot;,
+      &quot;value&quot;: 392.89
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-08&quot;,
+      &quot;value&quot;: 22.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-09&quot;,
+      &quot;value&quot;: 299.92
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-10&quot;,
+      &quot;value&quot;: 225.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-11&quot;,
+      &quot;value&quot;: 243.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-12&quot;,
+      &quot;value&quot;: 602.08
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-14&quot;,
+      &quot;value&quot;: 596.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-15&quot;,
+      &quot;value&quot;: 260.48
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-16&quot;,
+      &quot;value&quot;: 227.4
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-17&quot;,
+      &quot;value&quot;: 293.8
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-18&quot;,
+      &quot;value&quot;: 374.19
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-19&quot;,
+      &quot;value&quot;: 62.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-20&quot;,
+      &quot;value&quot;: 640.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-21&quot;,
+      &quot;value&quot;: 120.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-22&quot;,
+      &quot;value&quot;: 105.96
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-23&quot;,
+      &quot;value&quot;: 270.57
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-24&quot;,
+      &quot;value&quot;: 91.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-25&quot;,
+      &quot;value&quot;: 993.85
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-26&quot;,
+      &quot;value&quot;: 212.94
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-27&quot;,
+      &quot;value&quot;: 33.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-28&quot;,
+      &quot;value&quot;: 15.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-29&quot;,
+      &quot;value&quot;: 168.48
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-30&quot;,
+      &quot;value&quot;: 363.35
+    },
+    {
+      &quot;date&quot;: &quot;2025-01-31&quot;,
+      &quot;value&quot;: 4.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-01&quot;,
+      &quot;value&quot;: 464.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-02&quot;,
+      &quot;value&quot;: 156.23
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-03&quot;,
+      &quot;value&quot;: 565.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-04&quot;,
+      &quot;value&quot;: 1202.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-05&quot;,
+      &quot;value&quot;: 119.94
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-06&quot;,
+      &quot;value&quot;: 482.82
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-07&quot;,
+      &quot;value&quot;: 756.89
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-08&quot;,
+      &quot;value&quot;: 33.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-09&quot;,
+      &quot;value&quot;: 585.18
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-10&quot;,
+      &quot;value&quot;: 598.45
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-12&quot;,
+      &quot;value&quot;: 640.8
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-13&quot;,
+      &quot;value&quot;: 203.45
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-14&quot;,
+      &quot;value&quot;: 152.42
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-15&quot;,
+      &quot;value&quot;: 334.9
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-16&quot;,
+      &quot;value&quot;: 469.03
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-17&quot;,
+      &quot;value&quot;: 511.15
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-18&quot;,
+      &quot;value&quot;: 301.9
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-19&quot;,
+      &quot;value&quot;: 451.41
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-21&quot;,
+      &quot;value&quot;: 594.69
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-22&quot;,
+      &quot;value&quot;: 219.89
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-23&quot;,
+      &quot;value&quot;: 749.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-24&quot;,
+      &quot;value&quot;: 220.29
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-25&quot;,
+      &quot;value&quot;: 470.11
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-26&quot;,
+      &quot;value&quot;: 40.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-27&quot;,
+      &quot;value&quot;: 64.99
+    },
+    {
+      &quot;date&quot;: &quot;2025-02-28&quot;,
+      &quot;value&quot;: 255.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-01&quot;,
+      &quot;value&quot;: 515.14
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-02&quot;,
+      &quot;value&quot;: 56.94
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-03&quot;,
+      &quot;value&quot;: 187.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-04&quot;,
+      &quot;value&quot;: 127.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-05&quot;,
+      &quot;value&quot;: 309.42
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-06&quot;,
+      &quot;value&quot;: 268.72
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-07&quot;,
+      &quot;value&quot;: 616.46
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-08&quot;,
+      &quot;value&quot;: 556.88
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-09&quot;,
+      &quot;value&quot;: 181.47
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-10&quot;,
+      &quot;value&quot;: 742.45
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-11&quot;,
+      &quot;value&quot;: 714.9
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-12&quot;,
+      &quot;value&quot;: 180.46
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-13&quot;,
+      &quot;value&quot;: 18.98
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-14&quot;,
+      &quot;value&quot;: 208.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-15&quot;,
+      &quot;value&quot;: 1025.7
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-16&quot;,
+      &quot;value&quot;: 337.65
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-17&quot;,
+      &quot;value&quot;: 167.65
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-18&quot;,
+      &quot;value&quot;: 789.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-19&quot;,
+      &quot;value&quot;: 163.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-20&quot;,
+      &quot;value&quot;: 603.9
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-21&quot;,
+      &quot;value&quot;: 327.87
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-22&quot;,
+      &quot;value&quot;: 37.96
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-23&quot;,
+      &quot;value&quot;: 118.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-24&quot;,
+      &quot;value&quot;: 157.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-25&quot;,
+      &quot;value&quot;: 36.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-26&quot;,
+      &quot;value&quot;: 571.6
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-27&quot;,
+      &quot;value&quot;: 735.3
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-28&quot;,
+      &quot;value&quot;: 227.48
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-29&quot;,
+      &quot;value&quot;: 127.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-30&quot;,
+      &quot;value&quot;: 581.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-03-31&quot;,
+      &quot;value&quot;: 494.19
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-01&quot;,
+      &quot;value&quot;: 383.4
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-02&quot;,
+      &quot;value&quot;: 278.29
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-03&quot;,
+      &quot;value&quot;: 176.96
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-04&quot;,
+      &quot;value&quot;: 546.85
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-05&quot;,
+      &quot;value&quot;: 480.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-07&quot;,
+      &quot;value&quot;: 93.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-08&quot;,
+      &quot;value&quot;: 512.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-09&quot;,
+      &quot;value&quot;: 253.47
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-10&quot;,
+      &quot;value&quot;: 612.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-11&quot;,
+      &quot;value&quot;: 56.94
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-12&quot;,
+      &quot;value&quot;: 144.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-13&quot;,
+      &quot;value&quot;: 531.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-14&quot;,
+      &quot;value&quot;: 1050.6
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-15&quot;,
+      &quot;value&quot;: 619.69
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-16&quot;,
+      &quot;value&quot;: 285.86
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-17&quot;,
+      &quot;value&quot;: 219.89
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-18&quot;,
+      &quot;value&quot;: 264.48
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-19&quot;,
+      &quot;value&quot;: 36.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-20&quot;,
+      &quot;value&quot;: 11.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-21&quot;,
+      &quot;value&quot;: 564.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-22&quot;,
+      &quot;value&quot;: 737.88
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-23&quot;,
+      &quot;value&quot;: 29.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-24&quot;,
+      &quot;value&quot;: 51.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-25&quot;,
+      &quot;value&quot;: 82.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-26&quot;,
+      &quot;value&quot;: 39.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-27&quot;,
+      &quot;value&quot;: 273.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-28&quot;,
+      &quot;value&quot;: 259.9
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-29&quot;,
+      &quot;value&quot;: 4.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-04-30&quot;,
+      &quot;value&quot;: 243.39
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-01&quot;,
+      &quot;value&quot;: 200.13
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-02&quot;,
+      &quot;value&quot;: 204.6
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-03&quot;,
+      &quot;value&quot;: 622.6
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-04&quot;,
+      &quot;value&quot;: 500.94
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-05&quot;,
+      &quot;value&quot;: 153.95
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-06&quot;,
+      &quot;value&quot;: 60.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-07&quot;,
+      &quot;value&quot;: 27.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-08&quot;,
+      &quot;value&quot;: 374.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-09&quot;,
+      &quot;value&quot;: 227.76
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-10&quot;,
+      &quot;value&quot;: 544.38
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-11&quot;,
+      &quot;value&quot;: 596.15
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-13&quot;,
+      &quot;value&quot;: 119.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-14&quot;,
+      &quot;value&quot;: 649.15
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-15&quot;,
+      &quot;value&quot;: 397.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-17&quot;,
+      &quot;value&quot;: 44.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-18&quot;,
+      &quot;value&quot;: 21.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-19&quot;,
+      &quot;value&quot;: 238.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-20&quot;,
+      &quot;value&quot;: 190.68
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-21&quot;,
+      &quot;value&quot;: 385.91
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-22&quot;,
+      &quot;value&quot;: 225.46
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-23&quot;,
+      &quot;value&quot;: 116.74
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-24&quot;,
+      &quot;value&quot;: 294.6
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-25&quot;,
+      &quot;value&quot;: 207.43
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-26&quot;,
+      &quot;value&quot;: 726.49
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-27&quot;,
+      &quot;value&quot;: 210.9
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-28&quot;,
+      &quot;value&quot;: 331.99
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-29&quot;,
+      &quot;value&quot;: 93.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-30&quot;,
+      &quot;value&quot;: 24.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-05-31&quot;,
+      &quot;value&quot;: 257.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-01&quot;,
+      &quot;value&quot;: 1639.56
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-02&quot;,
+      &quot;value&quot;: 181.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-03&quot;,
+      &quot;value&quot;: 50.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-04&quot;,
+      &quot;value&quot;: 162.25
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-05&quot;,
+      &quot;value&quot;: 153.92
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-06&quot;,
+      &quot;value&quot;: 388.12
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-07&quot;,
+      &quot;value&quot;: 318.2
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-08&quot;,
+      &quot;value&quot;: 438.99
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-09&quot;,
+      &quot;value&quot;: 551.15
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-10&quot;,
+      &quot;value&quot;: 127.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-11&quot;,
+      &quot;value&quot;: 259.63
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-12&quot;,
+      &quot;value&quot;: 27.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-13&quot;,
+      &quot;value&quot;: 87.23
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-14&quot;,
+      &quot;value&quot;: 147.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-15&quot;,
+      &quot;value&quot;: 346.38
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-16&quot;,
+      &quot;value&quot;: 853.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-17&quot;,
+      &quot;value&quot;: 866.3
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-18&quot;,
+      &quot;value&quot;: 46.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-19&quot;,
+      &quot;value&quot;: 448.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-20&quot;,
+      &quot;value&quot;: 102.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-21&quot;,
+      &quot;value&quot;: 1687.29
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-22&quot;,
+      &quot;value&quot;: 475.75
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-23&quot;,
+      &quot;value&quot;: 659.19
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-24&quot;,
+      &quot;value&quot;: 197.97
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-25&quot;,
+      &quot;value&quot;: 156.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-26&quot;,
+      &quot;value&quot;: 638.13
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-27&quot;,
+      &quot;value&quot;: 334.93
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-28&quot;,
+      &quot;value&quot;: 856.5
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-29&quot;,
+      &quot;value&quot;: 368.0
+    },
+    {
+      &quot;date&quot;: &quot;2025-06-30&quot;,
+      &quot;value&quot;: 162.0
+    }
+  ],
+  &quot;quarantine_reasons&quot;: [
+    {
+      &quot;label&quot;: &quot;missing_customer_id&quot;,
+      &quot;value&quot;: 1
+    },
+    {
+      &quot;label&quot;: &quot;non_positive_quantity&quot;,
+      &quot;value&quot;: 1
+    },
+    {
+      &quot;label&quot;: &quot;missing_unit_price&quot;,
+      &quot;value&quot;: 1
+    },
+    {
+      &quot;label&quot;: &quot;duplicate_invoice_line&quot;,
+      &quot;value&quot;: 1
+    }
+  ]
+}</pre>
+  </details>
+
+  <footer>
+    Built by <a href="https://github.com/xj16/pipeforge">pipeforge</a> —
+    a runnable batch ELT pipeline. Regenerate with
+    <span class="mono">python -m pipeforge export --html</span>.
+  </footer>
+</div>
+</body>
+</html>

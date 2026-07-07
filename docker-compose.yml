@@ -32,6 +32,25 @@ x-airflow-common: &airflow-common
       condition: service_healthy
 
 services:
+  # ---------------------------------------------------------------------
+  # One-command, infra-free demo:  docker compose --profile demo up demo
+  # Builds the static warehouse explorer from the bundled data and serves
+  # it at http://localhost:8000 -- no Postgres/Airflow/Grafana required.
+  # ---------------------------------------------------------------------
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["demo"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        python -m pipeforge export --html --out /app/site &&
+        echo "pipeforge demo -> http://localhost:8000" &&
+        python -m http.server 8000 --directory /app/site
+    ports:
+      - "8000:8000"
+
   postgres:
     image: postgres:16
     environment:

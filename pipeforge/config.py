@@ -55,6 +55,14 @@ class Config:
         default_factory=lambda: _env("PIPEFORGE_FAIL_ON_CHECK", "1") == "1"
     )
 
+    # How the load stage writes the warehouse:
+    #   "replace" -> drop & rebuild every table (the original, one-shot behaviour)
+    #   "append"  -> only load fact rows newer than the stored watermark
+    #   "merge"   -> idempotent upsert on natural keys + SCD-2 on dim_customer
+    load_mode: str = field(
+        default_factory=lambda: _env("PIPEFORGE_LOAD_MODE", "replace").lower()
+    )
+
     def sqlalchemy_url(self) -> str:
         """Return the SQLAlchemy URL for the configured warehouse."""
         if self.warehouse == "postgres":

@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14120f"/>
+      <stop offset="1" stop-color="#0e0d0b"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#a39a8c"/>
+    </marker>
+    <style>
+      .stage { fill:#1c1a17; stroke:#332e26; stroke-width:1.5; rx:12; }
+      .accent { fill:#211a12; stroke:#f0883e; stroke-width:1.5; }
+      .title { fill:#efe9df; font-size:16px; font-weight:700; }
+      .lead  { fill:#f0883e; font-size:11px; font-weight:700; letter-spacing:1px; }
+      .cap   { fill:#a39a8c; font-size:11.5px; }
+      .flow  { stroke:#a39a8c; stroke-width:2; fill:none; }
+      .h     { fill:#efe9df; font-size:13px; font-weight:600; }
+    </style>
+  </defs>
+
+  <rect width="960" height="460" fill="url(#bg)"/>
+  <text x="32" y="42" class="lead">PIPEFORGE</text>
+  <text x="32" y="66" class="title">Batch ELT pipeline — extract → validate → model → load → serve</text>
+
+  <!-- Row 1: linear pipeline -->
+  <!-- raw -->
+  <rect class="stage" x="32"  y="100" width="150" height="86" rx="12"/>
+  <text x="48" y="128" class="h">raw CSV</text>
+  <text x="48" y="148" class="cap">bronze layer</text>
+  <text x="48" y="165" class="cap">faithful source copy</text>
+
+  <!-- extract -->
+  <rect class="stage" x="222" y="100" width="150" height="86" rx="12"/>
+  <text x="238" y="128" class="h">extract</text>
+  <text x="238" y="148" class="cap">typed DataFrame</text>
+  <text x="238" y="165" class="cap">coerce, never drop</text>
+
+  <!-- quality -->
+  <rect class="stage" x="412" y="100" width="150" height="86" rx="12"/>
+  <text x="428" y="128" class="h">DQ checks</text>
+  <text x="428" y="148" class="cap">not_null · unique</text>
+  <text x="428" y="165" class="cap">ERROR blocks / WARN logs</text>
+
+  <!-- transform -->
+  <rect class="stage" x="602" y="100" width="150" height="86" rx="12"/>
+  <text x="618" y="128" class="h">star transform</text>
+  <text x="618" y="148" class="cap">dims + fact_sales</text>
+  <text x="618" y="165" class="cap">quarantine dirt</text>
+
+  <!-- load -->
+  <rect class="accent" x="792" y="100" width="140" height="86" rx="12"/>
+  <text x="808" y="128" class="h">load</text>
+  <text x="808" y="148" class="cap">replace / append</text>
+  <text x="808" y="165" class="cap">merge (upsert + SCD2)</text>
+
+  <!-- arrows row 1 -->
+  <line class="flow" x1="182" y1="143" x2="222" y2="143" marker-end="url(#arrow)"/>
+  <line class="flow" x1="372" y1="143" x2="412" y2="143" marker-end="url(#arrow)"/>
+  <line class="flow" x1="562" y1="143" x2="602" y2="143" marker-end="url(#arrow)"/>
+  <line class="flow" x1="752" y1="143" x2="792" y2="143" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: warehouse + serve -->
+  <!-- warehouse -->
+  <rect class="accent" x="792" y="240" width="140" height="150" rx="12"/>
+  <text x="808" y="266" class="h">warehouse</text>
+  <text x="808" y="286" class="cap">SQLite / Postgres</text>
+  <text x="808" y="308" class="cap">typed DDL · PK/FK</text>
+  <text x="808" y="326" class="cap">dim_product</text>
+  <text x="808" y="342" class="cap">dim_customer (SCD2)</text>
+  <text x="808" y="358" class="cap">dim_date · fact_sales</text>
+  <text x="808" y="378" class="cap">pipeline_runs</text>
+
+  <!-- load -> warehouse -->
+  <line class="flow" x1="862" y1="186" x2="862" y2="240" marker-end="url(#arrow)"/>
+
+  <!-- reconcile -->
+  <rect class="stage" x="572" y="256" width="180" height="72" rx="12"/>
+  <text x="588" y="284" class="h">reconcile</text>
+  <text x="588" y="304" class="cap">no orphan FKs · row counts</text>
+  <text x="588" y="320" class="cap">revenue vs source</text>
+  <line class="flow" x1="792" y1="300" x2="752" y2="300" marker-end="url(#arrow)"/>
+
+  <!-- serve outputs -->
+  <rect class="stage" x="332" y="240" width="200" height="72" rx="12"/>
+  <text x="348" y="268" class="h">static HTML explorer</text>
+  <text x="348" y="288" class="cap">inline SVG charts</text>
+  <text x="348" y="304" class="cap">zero deps · one click</text>
+
+  <rect class="stage" x="332" y="326" width="200" height="64" rx="12"/>
+  <text x="348" y="354" class="h">Grafana dashboard</text>
+  <text x="348" y="374" class="cap">6 panels + run history</text>
+
+  <!-- warehouse -> serve outputs (routed along the bottom to clear reconcile) -->
+  <path class="flow" d="M792 365 L560 365 L560 358 L532 358" marker-end="url(#arrow)"/>
+  <path class="flow" d="M792 355 L555 355 L555 300 L532 300" marker-end="url(#arrow)"/>
+
+  <!-- orchestration note -->
+  <rect class="stage" x="32" y="240" width="260" height="150" rx="12"/>
+  <text x="48" y="266" class="h">orchestration</text>
+  <text x="48" y="288" class="cap">Airflow DAG reuses the exact</text>
+  <text x="48" y="304" class="cap">same stage functions — bronze</text>
+  <text x="48" y="320" class="cap">Parquet hand-off, retries, SLAs.</text>
+  <text x="48" y="344" class="cap">CLI · Airflow · CI all call one</text>
+  <text x="48" y="360" class="cap">orchestrator: no duplicated logic.</text>
+
+  <line class="flow" x1="292" y1="300" x2="332" y2="290" marker-end="url(#arrow)"/>
+</svg>

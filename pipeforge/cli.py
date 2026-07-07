@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from .checks.core import CheckSuite
-from .config import Config, WAREHOUSE_DIR, default_config
-from .export import export_databricks_parquet, export_snowflake_ddl
+from .config import Config, PROJECT_ROOT, WAREHOUSE_DIR, default_config
+from .export import export_databricks_parquet, export_html, export_snowflake_ddl
 from .generate_dataset import main as generate_dataset
 from .pipeline.load import read_table
 from .pipeline.run import PipelineError, run_pipeline, run_quality
@@ -24,12 +25,15 @@ from .pipeline.extract import extract_orders
 def _ensure_dataset(config: Config) -> None:
     if not (config.raw_dir / "online_retail.csv").exists():
         print("Raw dataset missing -- generating it...")
-        generate_dataset()
+        generate_dataset([])
 
 
 def cmd_run(config: Config) -> int:
     _ensure_dataset(config)
-    print(f"pipeforge: running ELT into {config.describe()}")
+    print(
+        f"pipeforge: running ELT into {config.describe()} "
+        f"[load_mode={config.load_mode}]"
+    )
     try:
         result = run_pipeline(config, load=True)
     except PipelineError as exc:
@@ -39,14 +43,26 @@ def cmd_run(config: Config) -> int:
     print("\nData-quality checks:")
     print(CheckSuite.summarize(result.check_results))
 
+    if result.recon_results:
+        print("\nPost-load reconciliation:")
+        print(CheckSuite.summarize(result.recon_results))
+
     print("\nWarehouse tables written:")
     for name, n in result.rows_written.items():
         print(f"  {name:<12} {n:>6} rows")
 
-    print(f"\nQuarantined rows: {len(result.star.quarantine)}")
+    print(f"\nRun id: {result.run_id}")
+    print(f"Quarantined rows: {len(result.star.quarantine)}")
     print(f"Total revenue (fact_sales): {result.total_revenue:,.2f}")
+
+    # A reconciliation failure means the load is inconsistent with the source.
+    recon_failed = any(not r.passed for r in result.recon_results)
+    if recon_failed:
+        print("\nWARNING: post-load reconciliation FAILED -- see above.", file=sys.stderr)
+        return 1
+
     print("\nDone. Query it, e.g.:")
-    print(f"  python -m pipeforge report")
+    print("  python -m pipeforge report")
     return 0
 
 
@@ -82,10 +98,20 @@ def cmd_report(config: Config) -> int:
     return 0
 
 
-def cmd_export(config: Config) -> int:
+def cmd_export(config: Config, args) -> int:
     _ensure_dataset(config)
     result = run_pipeline(config, load=False)
-    out = WAREHOUSE_DIR / "export"
+
+    if args.html:
+        out_dir = Path(args.out) if args.out else (PROJECT_ROOT / "docs")
+        target = export_html(
+            result.star, result.check_results, out_dir
+        )
+        print(f"HTML explorer:      {target}")
+        print(f"Open it:            file://{target.resolve()}")
+        return 0
+
+    out = Path(args.out) if args.out else (WAREHOUSE_DIR / "export")
     sf = export_snowflake_ddl(result.star, out)
     db = export_databricks_parquet(result.star, out)
     print(f"Snowflake DDL:      {sf}")
@@ -99,7 +125,19 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("run", help="run the full ELT pipeline")
     sub.add_parser("check", help="run data-quality checks only")
     sub.add_parser("report", help="print warehouse summary")
-    sub.add_parser("export", help="write Snowflake/Databricks export stubs")
+    export_p = sub.add_parser(
+        "export", help="write export artifacts (Snowflake/Databricks or --html)"
+    )
+    export_p.add_argument(
+        "--html",
+        action="store_true",
+        help="build the self-contained static HTML warehouse explorer",
+    )
+    export_p.add_argument(
+        "--out",
+        metavar="DIR",
+        help="output directory (default: docs/ for --html, data/warehouse/export otherwise)",
+    )
     sub.add_parser("generate-data", help="(re)generate the bundled dataset")
     return parser
 
@@ -116,9 +154,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "report":
         return cmd_report(config)
     if args.command == "export":
-        return cmd_export(config)
+        return cmd_export(config, args)
     if args.command == "generate-data":
-        generate_dataset()
+        generate_dataset([])
         return 0
     parser.error(f"unknown command {args.command!r}")
     return 2

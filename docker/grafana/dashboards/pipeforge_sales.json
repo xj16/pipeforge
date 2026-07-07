@@ -83,12 +83,40 @@
       "id": 6,
       "type": "barchart",
       "title": "Revenue by country",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 15 },
       "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT c.country, SUM(f.revenue) AS revenue FROM fact_sales f JOIN dim_customer c ON f.customer_key = c.customer_key GROUP BY c.country ORDER BY revenue DESC;",
+          "rawSql": "SELECT c.country, SUM(f.revenue) AS revenue FROM fact_sales f JOIN dim_customer c ON f.customer_key = c.customer_key WHERE c.is_current GROUP BY c.country ORDER BY revenue DESC;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Quarantine reasons",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 15 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT quarantine_reason, COUNT(*) AS rows FROM quarantine GROUP BY quarantine_reason ORDER BY rows DESC;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Pipeline run history",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 24 },
+      "datasource": { "type": "postgres", "uid": "pipeforge-warehouse" },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT started_at, load_mode, rows_extracted, rows_loaded, rows_quarantined, total_revenue, git_sha FROM pipeline_runs ORDER BY started_at DESC LIMIT 20;",
           "refId": "A"
         }
       ]

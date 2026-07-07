@@ -1,5 +1,6 @@
 # Dev/test/optional deps. Installed in CI and for the full experience.
 -r requirements.txt
 pytest>=7.4
+pytest-cov>=4.1        # coverage measurement + gating in CI
 psycopg2-binary>=2.9   # Postgres driver (only used when targeting Postgres)
 pyarrow>=14.0          # enables Parquet export for the Databricks stub

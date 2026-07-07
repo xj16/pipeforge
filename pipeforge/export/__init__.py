@@ -7,5 +7,11 @@ Nothing in the core pipeline depends on this package.
 """
 from .snowflake_export import export_snowflake_ddl
 from .databricks_export import export_databricks_parquet
+from .html_explorer import export_html, render_html
 
-__all__ = ["export_snowflake_ddl", "export_databricks_parquet"]
+__all__ = [
+    "export_snowflake_ddl",
+    "export_databricks_parquet",
+    "export_html",
+    "render_html",
+]
