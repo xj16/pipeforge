@@ -26,7 +26,8 @@ Three load modes (``PIPEFORGE_LOAD_MODE`` / ``Config.load_mode``):
 from __future__ import annotations
 
 import pandas as pd
-from sqlalchemy import Engine, Table, create_engine, func, select
+from sqlalchemy import Table, create_engine, func, select
+from sqlalchemy.engine import Engine  # top-level `sqlalchemy.Engine` is 2.0-only
 
 from ..config import Config
 from ..schema import warehouse as wh

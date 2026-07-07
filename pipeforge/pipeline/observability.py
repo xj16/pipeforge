@@ -26,7 +26,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import pandas as pd
-from sqlalchemy import Engine, create_engine, func, select
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.engine import Engine  # top-level `sqlalchemy.Engine` is 2.0-only
 
 from ..checks.core import CheckResult, Severity
 from ..config import Config
